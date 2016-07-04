@@ -22,16 +22,20 @@ int main(int argc, char *argv[])
 
    // Input file format.
    FILE * fin = fopen(argv[1],"r");
+   if (fin == NULL) {
+      fprintf(stderr, "error: opening input file 'fopen()'.\n");
+      exit(1);
+   }
    int call_zcat = 0;
-   unsigned char mn = fgetc(fin);
-   if (mn == 0x1f) {
-      mn = fgetc(fin);
-      if (mn == 0x8b) {
+   unsigned char c = fgetc(fin);
+   if (c == 0x1f) {
+      c = fgetc(fin);
+      if (c == 0x8b) {
          call_zcat = 1;
       }
-      ungetc(mn,fin);
+      ungetc(c,fin);
       ungetc(0x1f,fin);
-   } else ungetc(mn,fin);
+   } else ungetc(c,fin);
 
    // Fork and decompress using 'zcat'.
    int pipefd[2];
@@ -73,6 +77,23 @@ int main(int argc, char *argv[])
    }
 
 
+   // Detect file format.
+   c = fgetc(fin);
+   int div, seqline, qline;
+   if (c == '>') {
+      div = 2; seqline = 1; qline = 1;
+   } else if (c == '@') {
+      div = 4; seqline = 1; qline = 3;
+   } else if (c == 'A' || c == 'C' || c == 'G' || c == 'T') {
+      div = 1; seqline = 0; qline = 0;
+   } else {
+      fprintf(stderr, "error: file format not recognized.\n");
+      fprintf(stderr, "accepted formats: FASTA, FASTQ or RAW.\n");
+      fclose(fin);
+      exit(1);
+   }
+   ungetc(c,fin);
+
    // Read input file.
    size_t  bufsize = 100;
    ssize_t bytesrd;
@@ -80,7 +101,7 @@ int main(int argc, char *argv[])
    size_t  lineno = 0;
 
    while((bytesrd = getline(&line, &bufsize, fin)) > 0) {
-      if (lineno % 4 == 1) {
+      if (lineno % div == seqline) {
          char * bases = malloc(bytesrd-1);
          bases[bytesrd-2] = 0;
          // Read reference base.
@@ -100,7 +121,7 @@ int main(int argc, char *argv[])
          }
          // Print converted sequence.
          fprintf(stdout, "%s\n", bases);
-      } else if (lineno % 4 == 3) {
+      } else if (lineno % div == qline) {
          // Delete first quality score.
          fprintf(stdout, "%s", line+1);
       } else {
