@@ -1,3 +1,16 @@
+/* This algorithms converts sequences from
+** color space to nucleotides (A,C,T,G,N).
+**
+** Works fine with gzip'ed files but these
+** must exist phisically, if you'd like to
+** pipe the files in, use zcat in the pipe
+** to decompress.
+**
+** author: Eduard Valera Zorita (eduardvalera@gmail.com)
+** repository: github.com/ezorita/bioscripts
+**
+**/
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,17 +28,23 @@ int main(int argc, char *argv[])
    char to_base[4] = {'A','C','G','T'};
 
    // Check params.
-   if (argc != 2) {
+   if (argc > 2) {
       fprintf(stderr, "usage: %s <FASTA/FASTQ color sequence file>\n",argv[0]);
       exit(1);
    }
 
    // Input file format.
-   FILE * fin = fopen(argv[1],"r");
-   if (fin == NULL) {
-      fprintf(stderr, "error: opening input file 'fopen()'.\n");
-      exit(1);
+   FILE * fin = NULL;
+   if (argc == 2) {
+      fin = fopen(argv[1],"r");
+      if (fin == NULL) {
+         fprintf(stderr, "error: opening input file 'fopen()'.\n");
+         exit(1);
+      }
+   } else {
+      fin = stdin;
    }
+
    int call_zcat = 0;
    unsigned char c = fgetc(fin);
    if (c == 0x1f) {
@@ -104,8 +123,14 @@ int main(int argc, char *argv[])
       if (lineno % div == seqline) {
          char * bases = malloc(bytesrd-1);
          bases[bytesrd-2] = 0;
+	 // Check if line is in colorspace.
+         unsigned char ref = line[1];
+	 if (ref != '3' && ref != '2' && ref != '1' && ref != '0' && ref != '.') {
+	   fprintf(stdout, "%s\n", line);
+	   continue;
+	 }
          // Read reference base.
-         unsigned char ref = line[0];
+         ref = line[0];
          if      (ref == 'A' || ref == 'a') ref = 0;
          else if (ref == 'C' || ref == 'c') ref = 1;
          else if (ref == 'G' || ref == 'g') ref = 2;
