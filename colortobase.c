@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
    ssize_t bytesrd;
    char *  line = malloc(bufsize);
    size_t  lineno = 0;
+   int     color = 1;
 
    while((bytesrd = getline(&line, &bufsize, fin)) > 0) {
       if (lineno % div == seqline) {
@@ -126,9 +127,11 @@ int main(int argc, char *argv[])
 	 // Check if line is in colorspace.
          unsigned char ref = line[1];
 	 if (ref != '3' && ref != '2' && ref != '1' && ref != '0' && ref != '.') {
-	   fprintf(stdout, "%s\n", line);
+	   fprintf(stdout, "%s", line);
+	   color = 0;
+	   lineno++;
 	   continue;
-	 }
+	 } else color = 1;
          // Read reference base.
          ref = line[0];
          if      (ref == 'A' || ref == 'a') ref = 0;
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
          }
          // Print converted sequence.
          fprintf(stdout, "%s\n", bases);
-      } else if (lineno % div == qline) {
+      } else if (lineno % div == qline && color) {
          // Delete first quality score.
          fprintf(stdout, "%s", line+1);
       } else {
